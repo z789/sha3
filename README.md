@@ -1,10 +1,10 @@
 # sha3
-linux sha3 cmd
+linux sha3sum command
 
-linux 下没找到合适的sha3命令。 临时攒了一个。 测试用。
+cd sha3;
 
-cd sha3
-make
+make;
+
 ./sha3sum --help
 
 
