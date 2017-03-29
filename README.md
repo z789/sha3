@@ -1,9 +1,9 @@
 # sha3
 linux sha3sum command
 
-cd sha3;
+cd sha3
 
-make;
+make
 
 ./sha3sum --help
 
