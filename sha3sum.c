@@ -11,10 +11,10 @@
 #define ARRAY_SIZE(arr) (sizeof(arr)/sizeof(arr[0]))
 
 static const char *hashname[] = {
-	"sha3-224sum",
-	"sha3-256sum",
-	"sha3-384sum",
-	"sha3-512sum"
+	"SHA3-224",
+	"SHA3-256",
+	"SHA3-384",
+	"SHA3-512"
 };
 
 static int hashlen[] = {
