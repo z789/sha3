@@ -8,6 +8,8 @@
 #include <limits.h>
 #include "sha3.h"
 
+#define SHA3_DIGEST_SIZE_MIN SHA3_224_DIGEST_SIZE
+
 #define ARRAY_SIZE(arr) (sizeof(arr)/sizeof(arr[0]))
 
 static const char *hashname[] = {
@@ -133,6 +135,69 @@ static int match_hash_len(int bsdstyle, const char *alg, const char *hash)
 	return -1;
 }
 
+/*
+ * bsd style: "prefix (filename) = hex_hash"
+ *  example:
+ *  SHA3-224 (/bin/ls) = 9d9de39cc7f4fa9cfb2db7784baf62550999f579ff265a1d395b807b
+ *
+ * general style: "hex_hash  filename"
+ *  example:
+ *  9d9de39cc7f4fa9cfb2db7784baf62550999f579ff265a1d395b807b  /bin/ls
+*/
+static int splite_alg_fname_hash(char *buf, int len_buf, int *bsdstyle,
+                                 char *alg, int len_alg,
+                                 char *fname, int len_fname,
+                                 char *hash,  int len_hash)
+{
+	int ret = -1;
+	char *p_fname = NULL;
+	char *ptr = NULL;
+	char *tail = NULL;
+	const char *prefix = "SHA3-";
+	int len_prefix = strlen(prefix);
+	int len = 0;
+
+	if (!buf || len_buf <= 0 || !alg || len_alg <= 0|| !fname || len_fname <= 0
+                                 || !hash || len_hash < SHA3_DIGEST_SIZE_MIN * 2 )
+		return ret;
+
+	tail = buf + len_buf;
+
+	if (strncmp(buf, prefix, len_prefix) == 0) {
+		memcpy(alg, buf, len_prefix + 3);
+		p_fname = buf + len_prefix + 5;
+		ptr = strrchr(buf, '=');
+		if (ptr != NULL && p_fname < ptr - 2
+				&& tail - (ptr + 2) >= SHA3_DIGEST_SIZE_MIN * 2) {
+			memcpy(hash, ptr + 2, tail - (ptr+2));
+
+			len = ptr - 2 - p_fname;
+			if (len > len_fname) {
+				fprintf(stderr, "file name buf too small!\n");
+			} else {
+				memcpy(fname, p_fname, len);
+				*bsdstyle = 1;
+				ret = 0;
+			}
+		}
+	} else if ((ptr=strstr(buf, "  ")) != NULL) {
+		p_fname = ptr + 2;
+		if (ptr - buf >= SHA3_DIGEST_SIZE_MIN * 2 && p_fname < tail) {
+			memcpy(hash, buf, ptr-buf);
+
+			len = tail - p_fname;
+			if (len > len_fname) {
+				fprintf(stderr, "file name buf too small!\n");
+			} else {
+				memcpy(fname, p_fname, len);
+				ret = 0;
+			}
+		}
+	}
+
+	return ret;
+}
+
 static int check_sha3(const char *outname)
 {
 	FILE *f = NULL;
@@ -157,7 +222,7 @@ static int check_sha3(const char *outname)
 		char alg[16] = { 0 };
 		char *s = NULL;
 		int hash_len = 0;
-		int n, i;
+		int i;
 		unsigned int c;
 		int bsdstyle = 0;
 		int len = 0;
@@ -170,16 +235,10 @@ static int check_sha3(const char *outname)
 		if (line[len-1] == '\n')
 			line[len-1] = '\0';
 
-		n = sscanf(line, "%s (%[^)] %*s%*s %s\n", alg, fname, hex_hash);
-		if (n == 3) {
-			bsdstyle = 1;
-		} else {
-			n = sscanf(line, "%s  %s\n", hex_hash, fname);
-			if (n != 2) {
-				fprintf(stderr, "%s format err!\n", outname);
-				continue;
-			}
-		}
+		ret = splite_alg_fname_hash(line, strlen(line), &bsdstyle, alg, sizeof(alg)-1,
+				fname, sizeof(fname)-1, hex_hash, sizeof(hex_hash)-1);
+		if (ret < 0)
+			continue;
 
 		hash_len = match_hash_len(bsdstyle, alg, hex_hash);
 		if (hash_len < 0)
