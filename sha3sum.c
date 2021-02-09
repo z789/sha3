@@ -35,7 +35,7 @@ static int sha3_stream(FILE * stream, void *out, size_t outlen)
 	uint8_t *buf = (uint8_t *) malloc(buf_len);
 
 	if (!stream || !out || !buf)
-		return -1;
+		goto end;
 
 	sha3_init(&ctx, outlen);
 
